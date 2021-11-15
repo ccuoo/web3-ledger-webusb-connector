@@ -1,89 +1,81 @@
-import { ConnectorUpdate } from '@web3-react/types'
-import { AbstractConnector } from '@web3-react/abstract-connector'
-import Web3ProviderEngine from 'web3-provider-engine'
-import { LedgerSubprovider } from '@0x/subproviders/lib/src/subproviders/ledger' // https://github.com/0xProject/0x-monorepo/issues/1400
-import CacheSubprovider from 'web3-provider-engine/subproviders/cache.js'
-import { RPCSubprovider } from '@0x/subproviders/lib/src/subproviders/rpc_subprovider' // https://github.com/0xProject/0x-monorepo/issues/1400
-import Transport from "@ledgerhq/hw-transport-webusb";
-import Eth from '@ledgerhq/hw-app-eth';
-
-export async function ledgerEthereumBrowserClientFactoryAsync(): Promise<any> {
-  const ledgerConnection = await Transport.create();
-  const ledgerEthClient = new Eth(ledgerConnection);
-  return ledgerEthClient;
-}
+import { ConnectorUpdate } from '@web3-react/types';
+import { AbstractConnector } from '@web3-react/abstract-connector';
+import Web3ProviderEngine from 'web3-provider-engine';
+import { RPCSubprovider } from '@0x/subproviders/lib/src/subproviders/rpc_subprovider';
+import webUsbTransport from '@ledgerhq/hw-transport-webusb';
+import type Transport from '@ledgerhq/hw-transport';
+import createLedgerSubprovider from './provider';
 
 interface LedgerConnectorArguments {
-  chainId: number
-  url: string
-  pollingInterval?: number
-  requestTimeoutMs?: number
-  accountFetchingConfigs?: any
-  baseDerivationPath?: string
+  chainId: number;
+  url: string;
+  pollingInterval?: number;
+  requestTimeoutMs?: number;
 }
 
-export class LedgerConnector extends AbstractConnector {
-  private readonly chainId: number
-  private readonly url: string
-  private readonly pollingInterval?: number
-  private readonly requestTimeoutMs?: number
-  private readonly accountFetchingConfigs?: any
-  private readonly baseDerivationPath?: string
+const getTransport = async (): Promise<Transport> => {
+  return await webUsbTransport.create();
+};
 
-  private provider: any
+export class LedgerConnector extends AbstractConnector {
+  private readonly chainId: number;
+  private readonly url: string;
+  private readonly pollingInterval?: number;
+  private readonly requestTimeoutMs?: number;
+
+  private provider: any;
 
   constructor({
     chainId,
     url,
     pollingInterval,
     requestTimeoutMs,
-    accountFetchingConfigs,
-    baseDerivationPath
   }: LedgerConnectorArguments) {
-    super({ supportedChainIds: [chainId] })
+    super({ supportedChainIds: [chainId] });
 
-    this.chainId = chainId
-    this.url = url
-    this.pollingInterval = pollingInterval
-    this.requestTimeoutMs = requestTimeoutMs
-    this.accountFetchingConfigs = accountFetchingConfigs
-    this.baseDerivationPath = baseDerivationPath
+    this.chainId = chainId;
+    this.url = url;
+    this.requestTimeoutMs = requestTimeoutMs;
+    this.pollingInterval = pollingInterval;
   }
 
   public async activate(): Promise<ConnectorUpdate> {
     if (!this.provider) {
-      const engine = new Web3ProviderEngine({ pollingInterval: this.pollingInterval })
-      engine.addProvider(
-        new LedgerSubprovider({
-          networkId: this.chainId,
-          ledgerEthereumClientFactoryAsync: ledgerEthereumBrowserClientFactoryAsync,
-          accountFetchingConfigs: this.accountFetchingConfigs,
-          baseDerivationPath: this.baseDerivationPath
-        })
-      )
-      engine.addProvider(new CacheSubprovider())
-      engine.addProvider(new RPCSubprovider(this.url, this.requestTimeoutMs))
-      this.provider = engine
+      const engine = new Web3ProviderEngine({ pollingInterval: this.pollingInterval });
+      const ledgerProvider = await createLedgerSubprovider(getTransport, {
+        url: this.url,
+      });
+      engine.addProvider(ledgerProvider);
+      engine.addProvider(new RPCSubprovider(this.url, this.requestTimeoutMs));
+      this.provider = engine;
+      this.provider.start();
     }
-
-    this.provider.start()
-
-    return { provider: this.provider, chainId: this.chainId }
+    const account = await this.getAccount();
+    return { provider: this.provider, chainId: this.chainId, account };
   }
 
   public async getProvider(): Promise<Web3ProviderEngine> {
-    return this.provider
+    return this.provider;
   }
 
   public async getChainId(): Promise<number> {
-    return this.chainId
+    return this.chainId;
   }
 
-  public async getAccount(): Promise<null> {
-    return this.provider._providers[0].getAccountsAsync(1).then((accounts: string[]): string => accounts[0])
+  public async getAccount(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      this.provider._providers[0].getAccounts(function (error: any, result: string[]) {
+        if (error) {
+          return reject(error);
+        }
+        return resolve(result[0]);
+      });
+    });
   }
 
   public deactivate() {
-    this.provider.stop()
+    if (this.provider) {
+      this.provider.stop();
+    }
   }
 }
