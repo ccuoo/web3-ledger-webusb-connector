@@ -3,7 +3,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A simple, maximally extensible, dependency minimized framework for building modern Ethereum dApps",
   "keywords": [
     "react",
@@ -24,7 +24,7 @@
     "url": "git://github.com/NoahZinsmeister/web3-react.git"
   },
   "main": "dist/index.js",
-  "module": "dist/ledger-connector.esm.js",
+  "module": "dist/web3-ledger-webusb-connector.esm.js",
   "typings": "dist/index.d.ts",
   "files": [
     "dist"
