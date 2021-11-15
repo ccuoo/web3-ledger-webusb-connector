@@ -3,7 +3,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A simple, maximally extensible, dependency minimized framework for building modern Ethereum dApps",
   "keywords": [
     "react",
@@ -35,7 +35,7 @@
     "lint": "tsdx lint src"
   },
   "dependencies": {
-    "@0x/subproviders": "^6.6.1",
+    "@0x/subproviders": "^5.0.4",
     "@ledgerhq/hw-app-eth": "^6.15.0",
     "@ledgerhq/hw-transport-webusb": "^6.11.2",
     "@web3-react/abstract-connector": "^6.0.7",
