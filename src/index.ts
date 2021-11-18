@@ -54,7 +54,7 @@ export class LedgerConnector extends AbstractConnector {
         return ledgerConnection;
       }, {
         networkId: this.chainId,
-        paths: this.baseDerivationPath ? [this.baseDerivationPath] : undefined,
+        paths: this.baseDerivationPath ? [this.baseDerivationPath] : ["44'/60'/x'/0/0"],
         accountsLength: 0,
         accountsOffset: 1,
       })
