@@ -77,11 +77,20 @@ export class LedgerConnector extends AbstractConnector {
     return this.chainId
   }
 
-  public async getAccount(): Promise<null> {
-    return this.provider._providers[0].getAccountsAsync(1).then((accounts: string[]): string => accounts[0])
+  public async getAccount(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      this.provider._providers[0].getAccounts(function (error: any, result: string[]) {
+        if (error) {
+          return reject(error);
+        }
+        return resolve(result[0]);
+      });
+    });
   }
 
   public deactivate() {
-    this.provider.stop()
+    if (this.provider) {
+      this.provider.stop();
+    }
   }
 }
