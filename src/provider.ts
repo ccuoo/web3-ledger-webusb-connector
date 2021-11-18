@@ -89,6 +89,7 @@ export default async function createLedgerSubprovider(
   }
 
   async function signTransaction(txData: any) {
+    console.log("=== signTransaction ===", txData)
     const path = addressToPathMap[txData.from.toLowerCase()];
     if (!path) throw new Error("address unknown '" + txData.from + "'");
     const eth = new AppEth(transport);
