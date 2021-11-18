@@ -1,11 +1,10 @@
 import { ConnectorUpdate } from '@web3-react/types'
 import { AbstractConnector } from '@web3-react/abstract-connector'
 import Web3ProviderEngine from 'web3-provider-engine'
-import { LedgerSubprovider } from '@0x/subproviders/lib/src/subproviders/ledger' // https://github.com/0xProject/0x-monorepo/issues/1400
-import CacheSubprovider from 'web3-provider-engine/subproviders/cache.js'
 import { RPCSubprovider } from '@0x/subproviders/lib/src/subproviders/rpc_subprovider' // https://github.com/0xProject/0x-monorepo/issues/1400
 import Transport from "@ledgerhq/hw-transport-webusb";
 import Eth from '@ledgerhq/hw-app-eth';
+import createLedgerSubprovider from "./provider"
 
 export async function ledgerEthereumBrowserClientFactoryAsync(): Promise<any> {
   const ledgerConnection = await Transport.create();
@@ -27,7 +26,6 @@ export class LedgerConnector extends AbstractConnector {
   private readonly url: string
   private readonly pollingInterval?: number
   private readonly requestTimeoutMs?: number
-  private readonly accountFetchingConfigs?: any
   private readonly baseDerivationPath?: string
 
   private provider: any
@@ -37,7 +35,6 @@ export class LedgerConnector extends AbstractConnector {
     url,
     pollingInterval,
     requestTimeoutMs,
-    accountFetchingConfigs,
     baseDerivationPath
   }: LedgerConnectorArguments) {
     super({ supportedChainIds: [chainId] })
@@ -46,22 +43,23 @@ export class LedgerConnector extends AbstractConnector {
     this.url = url
     this.pollingInterval = pollingInterval
     this.requestTimeoutMs = requestTimeoutMs
-    this.accountFetchingConfigs = accountFetchingConfigs
     this.baseDerivationPath = baseDerivationPath
   }
 
   public async activate(): Promise<ConnectorUpdate> {
     if (!this.provider) {
       const engine = new Web3ProviderEngine({ pollingInterval: this.pollingInterval })
-      engine.addProvider(
-        new LedgerSubprovider({
-          networkId: this.chainId,
-          ledgerEthereumClientFactoryAsync: ledgerEthereumBrowserClientFactoryAsync,
-          accountFetchingConfigs: this.accountFetchingConfigs,
-          baseDerivationPath: this.baseDerivationPath
-        })
-      )
-      engine.addProvider(new CacheSubprovider())
+      const ledgerProvider = await createLedgerSubprovider(async () => {
+        const ledgerConnection = await Transport.create();
+        return ledgerConnection;
+      }, {
+        networkId: this.chainId,
+        paths: this.baseDerivationPath ? [this.baseDerivationPath] : undefined,
+        accountsLength: 0,
+        accountsOffset: 1,
+      })
+      engine.addProvider(ledgerProvider)
+      // engine.addProvider(new CacheSubprovider())
       engine.addProvider(new RPCSubprovider(this.url, this.requestTimeoutMs))
       this.provider = engine
     }
