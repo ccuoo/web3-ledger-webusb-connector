@@ -60,14 +60,18 @@ export default async function createLedgerSubprovider(
   async function getAccounts() {
     const eth = new AppEth(transport);
     const addresses: any = {};
+    console.log("accountsOffset", accountsOffset)
+    console.log("accountsLength", accountsLength)
     for (let i = accountsOffset; i < accountsOffset + accountsLength; i++) {
       const x = Math.floor(i / paths.length);
       const pathIndex = i - paths.length * x;
       const path = paths[pathIndex].replace('x', String(x));
+      console.log("path", accountsLength)
       const address = await eth.getAddress(path, askConfirm, false);
       addresses[path] = address.address;
       addressToPathMap[address.address.toLowerCase()] = path;
     }
+    console.log("addresses", addresses)
     return addresses;
   }
 
