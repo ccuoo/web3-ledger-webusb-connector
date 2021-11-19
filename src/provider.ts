@@ -2,15 +2,18 @@ import AppEth from '@ledgerhq/hw-app-eth';
 import type Transport from '@ledgerhq/hw-transport';
 import HookedWalletSubprovider from 'web3-provider-engine/subproviders/hooked-wallet';
 import stripHexPrefix from 'strip-hex-prefix';
-import { Transaction as EthereumTx } from 'ethereumjs-tx';
+import { utils } from "ethers"
+import { IoTeXApp } from "./ledger_iotex_app"
+import { from } from "./iotex_address";
 // @ts-ignore
-import IotexApp from "./ledger_iotex_app"
+import action = require("./action_pb");
 
-function makeError(msg: string, id: string) {
-  const err: any = new Error(msg);
-  err.id = id;
-  return err;
-}
+
+// function makeError(msg: string, id: string) {
+//   const err: any = new Error(msg);
+//   err.id = id;
+//   return err;
+// }
 
 /**
  */
@@ -47,7 +50,7 @@ export default async function createLedgerSubprovider(
       "@ledgerhq/web3-subprovider: path options was replaced by paths. example: paths: [\"44'/60'/x'/0/0\"]"
     );
   }
-  const { networkId, paths, askConfirm, accountsLength, accountsOffset } = {
+  const { paths } = {
     ...defaultOptions,
     ...options,
   };
@@ -60,21 +63,10 @@ export default async function createLedgerSubprovider(
   const transport = await getTransport();
 
   async function getAccounts() {
-    const eth = new AppEth(transport);
-    const addresses: any = {};
-    console.log("accountsOffset", accountsOffset)
-    console.log("accountsLength", accountsLength)
-    for (let i = accountsOffset; i < accountsOffset + accountsLength; i++) {
-      const x = Math.floor(i / paths.length);
-      const pathIndex = i - paths.length * x;
-      const path = paths[pathIndex].replace('x', String(x));
-      console.log("path", accountsLength)
-      const address = await eth.getAddress(path, askConfirm, false);
-      addresses[path] = address.address;
-      addressToPathMap[address.address.toLowerCase()] = path;
-    }
-    console.log("addresses", addresses)
-    return addresses;
+    const iotex = new IoTeXApp(transport);
+    const result = await iotex.publicKey([44, 304, 0, 0, 0])
+    const address = utils.computeAddress(result.publicKey)
+    return [address];
   }
 
   async function signPersonalMessage(msgData: any) {
@@ -91,36 +83,41 @@ export default async function createLedgerSubprovider(
   }
 
   async function signTransaction(txData: any) {
-    console.log("=== signTransaction ===", txData)
-    const path = addressToPathMap[txData.from.toLowerCase()];
-    if (!path) throw new Error("address unknown '" + txData.from + "'");
-    const eth = new AppEth(transport);
-    const tx = new EthereumTx(txData, { chain: networkId });
-
-    // Set the EIP155 bits
-    tx.raw[6] = Buffer.from([networkId]); // v
-    tx.raw[7] = Buffer.from([]); // r
-    tx.raw[8] = Buffer.from([]); // s
-
-    // Pass hex-rlp to ledger for signing
-    const result = await eth.signTransaction(path, tx.serialize().toString('hex'));
-
-    // Store signature in transaction
-    tx.v = Buffer.from(result.v, 'hex');
-    tx.r = Buffer.from(result.r, 'hex');
-    tx.s = Buffer.from(result.s, 'hex');
-
-    // EIP155: v should be chain_id * 2 + {35, 36}
-    const signedChainId = Math.floor((tx.v[0] - 35) / 2);
-    const validChainId = networkId & 0xff; // FIXME this is to fixed a current workaround that app don't support > 0xff
-    if (signedChainId !== validChainId) {
-      throw makeError(
-        'Invalid networkId signature returned. Expected: ' + networkId + ', Got: ' + signedChainId,
-        'InvalidNetworkId'
-      );
+    console.log("==== signTransaction ====", txData)
+    const act = new action.ActionCore();
+    act.setVersion(1);
+    act.setNonce(Number(txData.nonce));
+    act.setGaslimit(Number(txData.gasLimit));
+    act.setGasprice(txData.gasPrice.toString());
+    act.setChainid(0);
+    const isContract = txData.isContract;
+    delete txData.isContract
+    if (!isContract) {
+      const pbTransfer = new action.Transfer();
+      pbTransfer.setAmount(txData.value.toString());
+      pbTransfer.setRecipient(from(txData.to).string());
+      pbTransfer.setPayload(Buffer.from(txData.data.slice(2), "hex"));
+      act.setTransfer(pbTransfer);
+    } else {
+      const pbExecution = new action.Execution();
+      pbExecution.setAmount(txData.value);
+      if (txData.to === "") {
+          pbExecution.setContract("");
+      } else {
+          pbExecution.setContract(from(txData.to).string());
+      }
+      pbExecution.setData(Buffer.from(txData.data.slice(2), "hex"));
+      act.setExecution(pbExecution); 
     }
 
-    return `0x${tx.serialize().toString('hex')}`;
+    const iotex = new IoTeXApp(transport);
+    const signature = await iotex.sign([44, 304, 0, 0, 0], act.serializeBinary());
+    // @ts-ignore
+    if (!signature.signature) {
+      throw new Error("signature error")
+    }
+    // @ts-ignore
+    return utils.serializeTransaction(txData, signature.signature)
   }
 
   const subprovider = new HookedWalletSubprovider({

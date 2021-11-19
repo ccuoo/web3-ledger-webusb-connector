@@ -35,6 +35,7 @@ const ERROR_DESCRIPTION = {
   0x6F01: 'Sign/verify error',
 };
 
+
 function errorCodeToString(statusCode) {
   if (statusCode in ERROR_DESCRIPTION) return ERROR_DESCRIPTION[statusCode];
   return `Unknown Status Code: ${statusCode}`;
@@ -92,7 +93,7 @@ function signGetChunks(path, message) {
   return chunks;
 }
 
-module.exports.IoTeXApp = class IoTeXApp {
+export class IoTeXApp {
   constructor(transport, scrambleKey = 'CSM') {
     if (typeof transport === 'undefined') {
       throw new Error('Transport has not been defined');
