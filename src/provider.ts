@@ -3,6 +3,8 @@ import type Transport from '@ledgerhq/hw-transport';
 import HookedWalletSubprovider from 'web3-provider-engine/subproviders/hooked-wallet';
 import stripHexPrefix from 'strip-hex-prefix';
 import { Transaction as EthereumTx } from 'ethereumjs-tx';
+// @ts-ignore
+import IotexApp from "./ledger_iotex_app"
 
 function makeError(msg: string, id: string) {
   const err: any = new Error(msg);
