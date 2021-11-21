@@ -1,5 +1,7 @@
 /* eslint-disable */
 import { util, configure, Writer, Reader } from "protobufjs/minimal";
+
+// @ts-ignore
 import * as Long from "long";
 
 export const protobufPackage = "iotextypes";

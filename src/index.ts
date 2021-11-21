@@ -59,6 +59,7 @@ export class LedgerConnector extends AbstractConnector {
         paths: this.baseDerivationPath ? [this.baseDerivationPath] : undefined,
         accountsLength: this.accountsLength,
         accountsOffset: this.accountsOffset,
+        url: this.url,
       });
       engine.addProvider(ledgerProvider);
       engine.addProvider(new RPCSubprovider(this.url, this.requestTimeoutMs));
