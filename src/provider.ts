@@ -5,6 +5,7 @@ import { utils, ethers } from "ethers"
 import { IoTeXApp } from "./ledger_iotex_app"
 import { from } from "./iotex_address";
 import * as action from "./action_pb"
+import { serialize } from "./transaction";
 
 
 type SubproviderOptions = {
@@ -43,7 +44,8 @@ export default async function createLedgerSubprovider(
     return result.signature;
   }
 
-  async function signTransaction(txData: any) { 
+  async function signTransaction(txData: any) {
+    console.log("signTransaction input data", txData)
     let isTransfer = false;
     if (txData.to) {
       isTransfer = (await provider.getCode(txData.to)) === "0x"
@@ -80,9 +82,12 @@ export default async function createLedgerSubprovider(
       } as unknown as action.ActionCore
       act = action.ActionCore.encode(message).finish()
     }
+    console.log("signTransaction message", message)
 
     const iotex = new IoTeXApp(transport);
     const signature = await iotex.sign([44, 304, 0, 0, 0], act);
+
+    console.log("signTransaction signature", signature)
 
     const transaction = {
       to: txData.to,
@@ -91,16 +96,21 @@ export default async function createLedgerSubprovider(
       gasPrice: txData.gasPrice,
       data: txData.data,
       value: txData.value,
+      chainId: 4689,
       // special chainId
-      chainId: 999999
+      // chainId: 999999
     }
+
+    console.log("signTransaction transaction", transaction)
     
     // @ts-ignore
      if (!signature.signature) {
       throw new Error("signTransaction error")
     }
     // @ts-ignore
-    const result = utils.serializeTransaction(transaction, signature.signature)
+    const result = serialize(transaction, signature.signature)
+
+    console.log("signTransaction result", result)
     return result
   }
 
